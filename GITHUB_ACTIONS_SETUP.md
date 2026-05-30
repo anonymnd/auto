@@ -1,8 +1,8 @@
 # GitHub Actions setup
 
-The workflow in `.github/workflows/rabat-stage-brief.yml` sends the Rabat
-internship brief every day at 07:00 UTC, which is 08:00 in Casablanca during
-UTC+1.
+The workflow in `.github/workflows/rabat-stage-brief.yml` checks the local
+Casablanca time hourly and sends the Rabat internship brief at 08:00. This
+handles Morocco timezone changes automatically.
 
 ## Repository secrets
 

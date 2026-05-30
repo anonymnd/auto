@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import html
 import os
 import re
@@ -14,6 +15,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
+from zoneinfo import ZoneInfo
 
 
 SEARCH_URL = "https://html.duckduckgo.com/html/?{params}"
@@ -57,6 +59,7 @@ IT_TERMS = (
 )
 JULY_TERMS = ("juillet", "july", "07/2026", "07-2026", "début juillet", "debut juillet")
 EXCLUDED_TERMS = ("pfe", "fin d'études", "fin d’etudes", "end-of-studies", "end of studies")
+CASABLANCA = ZoneInfo("Africa/Casablanca")
 
 
 @dataclass(frozen=True)
@@ -177,7 +180,20 @@ def send_email(subject: str, body: str) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--scheduled",
+        action="store_true",
+        help="Send only during the 08:00 hour in Casablanca. Manual runs send immediately.",
+    )
+    args = parser.parse_args()
+
     now = datetime.now(timezone.utc)
+    local_now = now.astimezone(CASABLANCA)
+    if args.scheduled and local_now.hour != 8:
+        print(f"Skipping scheduled run: current Casablanca time is {local_now:%H:%M}.")
+        return
+
     posts = collect_posts(now)
     body = build_brief(posts, now)
     send_email(f"Brief stages informatique Rabat - {now.astimezone().strftime('%d/%m/%Y')}", body)
