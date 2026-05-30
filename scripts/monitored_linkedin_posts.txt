@@ -1,0 +1,2 @@
+# Add one public LinkedIn post URL per line. Posts older than 7 days are ignored.
+https://www.linkedin.com/feed/update/urn:li:activity:7466093372068356096/
