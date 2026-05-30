@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.stagiaires-profile/
+.linkedin-anon-profile/
+__pycache__/
+*.pyc
+data/*.csv
+data/*.json
+data/stagiaires/*.json
+!data/.gitkeep

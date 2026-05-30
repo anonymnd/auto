@@ -1,0 +1,25 @@
+name: Rabat internship morning brief
+
+on:
+  schedule:
+    # GitHub Actions uses UTC. 07:00 UTC is 08:00 in Casablanca during UTC+1.
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Send Rabat internship brief
+        env:
+          GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          BRIEF_RECIPIENT: ${{ secrets.BRIEF_RECIPIENT }}
+        run: python scripts/send_rabat_stage_brief.py
