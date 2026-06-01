@@ -69,6 +69,7 @@ JULY_TERMS = ("juillet", "july", "07/2026", "07-2026", "début juillet", "debut 
 EXCLUDED_TERMS = ("pfe", "fin d'études", "fin d’etudes", "end-of-studies", "end of studies")
 CASABLANCA = ZoneInfo("Africa/Casablanca")
 MONITORED_POSTS_PATH = os.path.join(os.path.dirname(__file__), "monitored_linkedin_posts.txt")
+SCHEDULED_ALLOWED_HOURS = {8, 9}
 
 
 @dataclass(frozen=True)
@@ -315,6 +316,10 @@ def print_brief(body: str) -> None:
         sys.stdout.buffer.write((body + "\n").encode("utf-8", errors="replace"))
 
 
+def should_send_scheduled(local_now: datetime) -> bool:
+    return local_now.hour in SCHEDULED_ALLOWED_HOURS
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -326,8 +331,12 @@ def main() -> None:
 
     now = datetime.now(timezone.utc)
     local_now = now.astimezone(CASABLANCA)
-    if args.scheduled and local_now.hour != 8:
-        print(f"Skipping scheduled run: current Casablanca time is {local_now:%H:%M}.")
+    if args.scheduled and not should_send_scheduled(local_now):
+        print(
+            "Skipping scheduled run: "
+            f"current Casablanca time is {local_now:%H:%M}; "
+            "allowed scheduled hours are 08:00-09:59."
+        )
         return
 
     posts = collect_posts(now)

@@ -2,9 +2,9 @@ name: Rabat internship morning brief
 
 on:
   schedule:
-    # The script sends only during the 08:00 hour in Casablanca. Running hourly
-    # handles Morocco timezone changes while keeping manual test runs immediate.
-    - cron: "0 * * * *"
+    # Retry across the Casablanca morning window because GitHub scheduled runs
+    # can drift. The job deduplicates so at most one email is sent per day.
+    - cron: "0 7,8,9 * * *"
   workflow_dispatch:
 
 permissions:
@@ -18,9 +18,43 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Compute Casablanca date
+        id: casablanca
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from datetime import datetime, timezone
+          from zoneinfo import ZoneInfo
+
+          local_now = datetime.now(timezone.utc).astimezone(ZoneInfo("Africa/Casablanca"))
+          print(f"local_date={local_now:%Y-%m-%d}")
+          print(f"local_time={local_now:%H:%M}")
+          PY
+
+      - name: Restore daily send marker
+        id: sent-marker
+        uses: actions/cache/restore@v4
+        with:
+          path: .brief-state
+          key: rabat-stage-brief-${{ steps.casablanca.outputs.local_date }}
+
       - name: Send Rabat internship brief
+        id: send-brief
         env:
           GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           BRIEF_RECIPIENT: ${{ secrets.BRIEF_RECIPIENT }}
-        run: python scripts/send_rabat_stage_brief.py ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ -f .brief-state/sent.txt ]; then
+            echo "Daily brief already sent for ${{ steps.casablanca.outputs.local_date }}."
+            exit 0
+          fi
+          python scripts/send_rabat_stage_brief.py ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
+          mkdir -p .brief-state
+          printf '%s %s\n' "${{ steps.casablanca.outputs.local_date }}" "${{ steps.casablanca.outputs.local_time }}" > .brief-state/sent.txt
+
+      - name: Save daily send marker
+        if: success() && github.event_name == 'schedule' && steps.sent-marker.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .brief-state
+          key: rabat-stage-brief-${{ steps.casablanca.outputs.local_date }}
