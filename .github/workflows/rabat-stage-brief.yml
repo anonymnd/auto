@@ -1,11 +1,6 @@
 name: Rabat internship morning brief
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - .github/workflows/rabat-stage-brief.yml
   schedule:
     # Retry across the Casablanca morning window because GitHub scheduled runs
     # can drift. The job deduplicates so at most one email is sent per day.
@@ -28,7 +23,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
