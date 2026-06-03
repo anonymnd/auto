@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from html.parser import HTMLParser
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
@@ -35,17 +36,16 @@ TAG_RE = re.compile(r"<[^>]+>")
 SPACE_RE = re.compile(r"\s+")
 
 QUERIES = (
-    'site:linkedin.com/posts Rabat stage juillet',
-    'site:linkedin.com/posts Rabat internship July',
-    'site:linkedin.com/posts Rabat PFA informatique',
-    'site:linkedin.com/posts Rabat stage développeur',
-    'site:linkedin.com/posts Rabat stage Laravel OR PHP OR Java OR React',
-    'site:linkedin.com/posts Rabat stage data OR IA OR cybersécurité OR cloud OR DevOps',
+    "site:linkedin.com/posts Rabat stage juillet",
+    "site:linkedin.com/posts Rabat internship July",
+    "site:linkedin.com/posts Rabat PFA informatique",
+    "site:linkedin.com/posts Rabat stage developpeur",
+    "site:linkedin.com/posts Rabat stage Laravel OR PHP OR Java OR React",
+    "site:linkedin.com/posts Rabat stage data OR IA OR cybersecurite OR cloud OR DevOps",
 )
 
 IT_TERMS = (
     "informatique",
-    "dévelop",
     "develop",
     "software",
     "data",
@@ -54,10 +54,9 @@ IT_TERMS = (
     "cyber",
     "cloud",
     "devops",
-    "réseau",
     "reseau",
-    "système",
     "system",
+    "systeme",
     "qa",
     "test",
     "support it",
@@ -65,8 +64,8 @@ IT_TERMS = (
     "frontend",
     "backend",
 )
-JULY_TERMS = ("juillet", "july", "07/2026", "07-2026", "début juillet", "debut juillet")
-EXCLUDED_TERMS = ("pfe", "fin d'études", "fin d’etudes", "end-of-studies", "end of studies")
+JULY_TERMS = ("juillet", "july", "07/2026", "07-2026", "debut juillet")
+EXCLUDED_TERMS = ("pfe", "fin d'etudes", "end-of-studies", "end of studies")
 CASABLANCA = ZoneInfo("Africa/Casablanca")
 MONITORED_POSTS_PATH = os.path.join(os.path.dirname(__file__), "monitored_linkedin_posts.txt")
 SCHEDULED_ALLOWED_HOURS = {8, 9}
@@ -225,6 +224,12 @@ def fetch_linkedin_text(post: Post) -> str:
         return post.snippet
 
 
+def write_status_file(path: str | None, status: str) -> None:
+    if not path:
+        return
+    Path(path).write_text(status, encoding="utf-8")
+
+
 def is_relevant(post: Post, now: datetime) -> bool:
     age = now - post.published_at
     text = f" {post.snippet.lower()} "
@@ -255,7 +260,7 @@ def collect_posts(now: datetime) -> list[Post]:
                     if now - post.published_at <= timedelta(days=7):
                         activity_id = ACTIVITY_RE.search(post.url)
                         discovered[activity_id.group(1) if activity_id else post.url] = post
-            except Exception as exc:  # Continue so one failed query does not cancel the brief.
+            except Exception as exc:
                 errors.append(f"{engine.__name__} | {query}: {exc}")
     if errors:
         print("Search warnings:", *errors, sep="\n- ", file=sys.stderr)
@@ -268,27 +273,38 @@ def collect_posts(now: datetime) -> list[Post]:
 
 
 def build_brief(posts: list[Post], now: datetime) -> str:
+    local_now = now.astimezone(CASABLANCA)
+    source_label = os.environ.get("BRIEF_SOURCE_LABEL", "Automated brief")
+    run_url = os.environ.get("BRIEF_RUN_URL", "").strip()
     lines = [
-        f"Brief stages informatique Rabat - {now.astimezone().strftime('%d/%m/%Y')}",
+        f"Brief stages informatique Rabat - {local_now.strftime('%d/%m/%Y')}",
         "",
-        "Filtres: stage classique / internship / PFA, début juillet, posts LinkedIn publics publiés depuis 7 jours maximum, hors PFE.",
+        "Filtres: stage classique / internship / PFA, debut juillet, posts LinkedIn publics publies depuis 7 jours maximum, hors PFE.",
         "",
     ]
     if not posts:
-        lines.append("Aucun nouveau post LinkedIn public conforme trouvé aujourd'hui.")
-        return "\n".join(lines)
+        lines.append("Aucun nouveau post LinkedIn public conforme trouve aujourd'hui.")
+    else:
+        lines.append(f"{len(posts)} opportunite(s) recente(s) trouvee(s):")
+        lines.append("")
+        for index, post in enumerate(posts, start=1):
+            lines.extend(
+                [
+                    f"{index}. Publication LinkedIn du {post.published_at.astimezone(CASABLANCA).strftime('%d/%m/%Y %H:%M')}",
+                    f"   {post.snippet}",
+                    f"   {post.url}",
+                    "",
+                ]
+            )
 
-    lines.append(f"{len(posts)} opportunité(s) récente(s) trouvée(s):")
-    lines.append("")
-    for index, post in enumerate(posts, start=1):
-        lines.extend(
-            [
-                f"{index}. Publication LinkedIn du {post.published_at.astimezone().strftime('%d/%m/%Y %H:%M')}",
-                f"   {post.snippet}",
-                f"   {post.url}",
-                "",
-            ]
-        )
+    lines.extend(
+        [
+            f"Source d'envoi: {source_label}",
+            "Fuseau de reference: Africa/Casablanca",
+        ]
+    )
+    if run_url:
+        lines.append(f"Execution GitHub: {run_url}")
     return "\n".join(lines).rstrip()
 
 
@@ -327,11 +343,16 @@ def main() -> None:
         action="store_true",
         help="Send only during the 08:00 hour in Casablanca. Manual runs send immediately.",
     )
+    parser.add_argument(
+        "--status-file",
+        help="Optional file path where the script writes either 'sent' or 'skipped'.",
+    )
     args = parser.parse_args()
 
     now = datetime.now(timezone.utc)
     local_now = now.astimezone(CASABLANCA)
     if args.scheduled and not should_send_scheduled(local_now):
+        write_status_file(args.status_file, "skipped")
         print(
             "Skipping scheduled run: "
             f"current Casablanca time is {local_now:%H:%M}; "
@@ -341,7 +362,8 @@ def main() -> None:
 
     posts = collect_posts(now)
     body = build_brief(posts, now)
-    send_email(f"Brief stages informatique Rabat - {now.astimezone().strftime('%d/%m/%Y')}", body)
+    send_email(f"Brief stages informatique Rabat - {local_now.strftime('%d/%m/%Y')}", body)
+    write_status_file(args.status_file, "sent")
     print_brief(body)
 
 

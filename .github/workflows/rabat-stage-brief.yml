@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: rabat-stage-brief
+  cancel-in-progress: false
+
 jobs:
   send-brief:
     runs-on: ubuntu-latest
@@ -17,6 +21,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Compute Casablanca date
         id: casablanca
@@ -37,23 +46,58 @@ jobs:
           path: .brief-state
           key: rabat-stage-brief-${{ steps.casablanca.outputs.local_date }}
 
+      - name: Validate email secrets
+        env:
+          GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          BRIEF_RECIPIENT: ${{ secrets.BRIEF_RECIPIENT }}
+        run: |
+          python - <<'PY'
+          import os
+          missing = [
+              name for name in ("GMAIL_SENDER", "GMAIL_APP_PASSWORD", "BRIEF_RECIPIENT")
+              if not os.environ.get(name, "").strip()
+          ]
+          if missing:
+              raise SystemExit(f"Missing GitHub Actions secrets: {', '.join(missing)}")
+          print("GitHub email secrets are configured.")
+          PY
+
       - name: Send Rabat internship brief
         id: send-brief
         env:
           GMAIL_SENDER: ${{ secrets.GMAIL_SENDER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           BRIEF_RECIPIENT: ${{ secrets.BRIEF_RECIPIENT }}
+          BRIEF_SOURCE_LABEL: GitHub Actions
+          BRIEF_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ "${{ github.event_name }}" = "schedule" ] && [ -f .brief-state/sent.txt ]; then
             echo "Daily brief already sent for ${{ steps.casablanca.outputs.local_date }}."
             exit 0
           fi
-          python scripts/send_rabat_stage_brief.py ${{ github.event_name == 'schedule' && '--scheduled' || '' }}
+          python scripts/send_rabat_stage_brief.py \
+            ${{ github.event_name == 'schedule' && '--scheduled' || '' }} \
+            --status-file brief-status.txt | tee brief-output.txt
+          echo "status=$(cat brief-status.txt)" >> "$GITHUB_OUTPUT"
+
+      - name: Write workflow summary
+        if: always() && hashFiles('brief-output.txt') != ''
+        run: |
+          {
+            echo "## Rabat internship brief"
+            echo
+            cat brief-output.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Persist daily send marker
+        if: success() && github.event_name == 'schedule' && steps.send-brief.outputs.status == 'sent'
+        run: |
           mkdir -p .brief-state
           printf '%s %s\n' "${{ steps.casablanca.outputs.local_date }}" "${{ steps.casablanca.outputs.local_time }}" > .brief-state/sent.txt
 
       - name: Save daily send marker
-        if: success() && github.event_name == 'schedule' && steps.sent-marker.outputs.cache-hit != 'true'
+        if: success() && github.event_name == 'schedule' && steps.send-brief.outputs.status == 'sent' && steps.sent-marker.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: .brief-state
