@@ -1,0 +1,6 @@
+mne>=1.8
+numpy
+scipy
+matplotlib
+scikit-learn
+pandas
