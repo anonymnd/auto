@@ -4,3 +4,6 @@ scipy
 matplotlib
 scikit-learn
 pandas
+requests
+h5py
+pymatreader

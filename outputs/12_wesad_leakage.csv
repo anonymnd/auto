@@ -1,0 +1,16 @@
+setting,fold,balanced_accuracy
+random_kfold,0,0.6686596218020022
+random_kfold,1,0.7058673469387755
+random_kfold,2,0.7118012422360248
+random_kfold,3,0.7383658008658008
+random_kfold,4,0.7873382011284433
+group_kfold,0,0.7256030701754386
+group_kfold,1,0.7918520578420467
+group_kfold,2,0.631578947368421
+group_kfold,3,0.6802357456140351
+group_kfold,4,0.6386800334168755
+null_shuffled,0,0.4745762711864407
+null_shuffled,1,0.5
+null_shuffled,2,0.5
+null_shuffled,3,0.5
+null_shuffled,4,0.4940622440622441

@@ -143,3 +143,74 @@ across subjects. This is the plan's central "sense, interpret, adapt,
 measure again" loop in its smallest form (plan section D step 2), on real
 data, same pipeline fix as the leakage experiment above. See
 `outputs/10_calibration_curve.csv`.
+
+## 2026-07-08 — Level 6: second modality (WESAD wrist sensors), same question
+`12_wesad_leakage.py`: WESAD dataset (Schmidt et al. 2018), 15 subjects,
+Empatica E4 wrist sensors (BVP 64Hz, EDA 4Hz, TEMP 4Hz, 3-axis ACC 32Hz),
+30s windows, mean+std per channel = 8 features, baseline vs stress labels
+only (amusement/meditation excluded for this binary comparison). 889 windows.
+LogisticRegression, same random/group/null structure as prior experiments.
+Random split: 0.722 +/- 0.039. Subject-wise: 0.694 +/- 0.060. Null
+(shuffled, grouped): 0.494 +/- 0.010 — clean chance baseline. Both real
+scores sit clearly above null, so there is genuine signal in just 8 simple
+wrist features. Gap = 0.029, small — similar in size to the motor-imagery
+gap (0.027), much smaller than EEGMAT's 0.182.
+CROSS-MODALITY PATTERN across the three leakage experiments run so far:
+EEGMAT (scalp EEG, rest vs arithmetic) has the largest leakage gap (0.182)
+and the strongest raw signal; motor imagery (scalp EEG, L/R fist) and
+WESAD (wrist, baseline vs stress) both show smaller, similar-sized gaps
+(~0.03) despite being a different task AND a different sensor type. One
+honest read: a small gap is not automatically "no leakage risk" — it may
+mean the task's between-subject signal is just naturally smaller relative
+to its within-subject signal, not that subject-wise evaluation matters
+less. Needs more datasets before generalizing. See
+`outputs/12_wesad_leakage.csv`.
+
+## 2026-07-08 — WESAD wrist vs chest: the sensor-placement cost
+`13_wesad_wrist_vs_chest.py`: same 15 subjects, same baseline-vs-stress
+task, same subject-wise evaluation, two feature sets — wrist (Empatica E4,
+8 features) vs chest (RespiBAN: ECG/EDA/EMG/Resp/Temp/ACC at 700Hz,
+12 features, same 30s windows). Chest: 0.807 +/- 0.066. Wrist: 0.694 +/- 0.060.
+Both nulls near chance (0.500/0.494). Cost of wrist-only (vs. chest): 0.114
+balanced accuracy — switching to the consumer-grade, comfortable device
+instead of the clinical chest rig costs about 11 points. This is a concrete,
+reportable answer to "how much do you lose going cheap/wearable," one of
+the plan's own candidate projects (section F, "NEXT" tier). See
+`outputs/13_wesad_wrist_vs_chest.csv`.
+
+## 2026-07-08 — Level 7: reproduction attempt, honest non-replication
+Target: Pavlov et al. 2022 (OpenNeuro ds003838, digit-span working memory
+EEG), their qualitative claim of frontal midline theta (~6 Hz, Fz)
+increasing in the memory condition vs. listen-only control (their Fig. 3d
+-- no numbers given in the paper text). Downloaded 3 subjects
+(sub-032/033/034, the first three with EEG_excluded=no per
+participants.tsv), memory-task .set files (~1.5-1.7 GB each, EEGLAB v7.3/
+HDF5 format -- needed pymatreader+h5py, not in original requirements.txt,
+installed ad hoc). `15_digitspan_theta_reproduction.py` reads only the Fz
+channel directly via h5py (full 63-channel load needs ~3.5GB RAM per
+subject and this machine didn't reliably have that free -- lazy single-
+channel read avoids it). Theta (4-8Hz) log power via Welch, computed on
+the 3s window right after each trial's last digit (the retention interval
+before recall), per trial, memory vs. control.
+VALIDATION: trial counts per subject (54 control + 108 memory = 162) match
+the paper's stated per-subject counts exactly -- confirms the event
+parsing (trial_type text matching, "last digit in sequence" detection) is
+correct.
+RESULT: mean memory-control theta difference = -0.050 (log power), i.e.
+theta was LOWER in memory than control on average -- opposite direction
+from the paper's claim. 2 of 3 subjects (032, 033) went the "wrong" way,
+1 (034) went the right way but barely. Paired t-test across the 3
+subjects: t=-1.190, p=0.356, not significant.
+HONEST READ: this does not replicate the paper's claim, on this small
+sample. Candidate reasons, none confirmed: (1) n=3 is far too small to
+draw any real conclusion either way, the paper's own effect is only shown
+as a figure with no numbers, so I don't know its effect size either; (2)
+my window choice (fixed 3s after last digit) is a guess at "the retention
+interval" from the task description, not validated against the paper's
+own epoching; (3) no baseline correction (power relative to the pre-trial
+baseline) was applied, which spectral papers normally do and I did not;
+(4) FCz was the online reference during recording (per paper's methods),
+not re-referenced here, which could shift frontal channel power. This is
+reported as a non-replication, not a refutation of the original finding --
+the honest conclusion is "my small, quick version didn't show it," not
+"the effect doesn't exist." See `outputs/15_digitspan_theta.csv`.
