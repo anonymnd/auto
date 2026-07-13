@@ -36,6 +36,13 @@ site). This repo is the code and the raw decision log behind those posts.
 8. A reproduction attempt of a published EEG finding (Pavlov et al. 2022,
    frontal midline theta in a digit-span task) — reported honestly,
    including that it did not replicate on the small subset tried here
+9. The same random-vs-student-wise split question outside neuroscience
+   entirely: predicting right/wrong answers in a public education-data-
+   mining dataset (ASSISTments 2009-2010, 4213 students) from purely
+   behavioral features (response time, hint use, attempt count). This
+   time there is almost no gap — a useful contrast with every EEG/
+   wearable result above, and a reminder that the gap's size depends on
+   how person-identifying the features are, not just on the split method
 
 ## Setup
 

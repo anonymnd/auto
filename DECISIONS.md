@@ -2,6 +2,48 @@
 
 Format: date — decision — why — what it rules out.
 
+## 2026-07-13 — New side-thread: does the leakage pattern hold outside neuroscience?
+Prompted by the plan's own suggestion (section P) to try interaction-log
+data before any brain signal for the adaptive-learning idea. Could not use
+my own study-session logs (none exist yet, no logging tool in place), so
+switched to a real public dataset with the same kind of signal instead of
+fabricating data: ASSISTments 2009-2010 skill-builder (classic knowledge-
+tracing dataset, 525,534 interactions, 4213 students, CC BY 4.0, mirrored
+on figshare by Zhijie Liang — original ASSISTments 2017 release needed an
+email-gated signup form, skipped). Literature pass first: learning-styles
+"matching" theory has weak-to-no support (Pashler et al. 2008; a 2024
+meta-analysis found only a small effect, g=0.31, "too small to warrant
+adoption"); a more defensible individual-difference source is
+"structure-building" ability (McDaniel, Marsh & Gouravajhala 2022);
+knowledge tracing (Corbett & Anderson 1994 onward) is the standard
+technique behind adaptive tutors.
+
+## 2026-07-13 — ASSISTments: predicting correctness, random vs student-wise split
+`16_assistments_leakage.py`: features are purely behavioral, no skill
+content — log(first-response time), attempt count, hint count, hint
+total, log(opportunity = times this student has practiced this skill
+before), bottom-hint flag. Target: correct (0/1). Logistic regression,
+same random/group/null structure as every prior experiment in this
+project. 514,304 usable interactions after dropping bad timestamps,
+4213 students, positive rate 0.681.
+Random split: 0.866 +/- 0.002. Student-wise split: 0.865 +/- 0.006. Null
+(shuffled, grouped): 0.500 +/- 0.000 exactly. Gap = 0.001 — essentially
+none, the smallest of any experiment in this project, on the largest
+sample (4213 students vs 10-36 in the EEG/wearable experiments).
+WHY THIS IS DIFFERENT FROM EVERY EEG/WEARABLE RESULT SO FAR: the features
+here (response time, hint use, attempt count) are generic behavioral
+signals of "is this question hard for whoever is answering it right now,"
+not signals tied to one person's physiology. A slow response + many hints
++ many attempts predicts a wrong answer almost the same way for any
+student. There is very little "who is this" information for a model to
+exploit through a random split, so random and student-wise splits land
+in almost the same place. This directly supports the "small gap size is
+informative about the features, not just the splitting method" point
+from the synthesis post: EEG/wearable features carry subject-identity
+information (skull geometry, skin conductance baseline, etc.) that these
+behavioral features simply don't. See
+`outputs/16_assistments_leakage.csv`.
+
 ## 2026-07-03 — Line noise: 60 Hz confirmed on EEGBCI motor-imagery data
 Zoomed PSD (45-65 Hz) on subject S001/run R04 shows a clear 60 Hz spike
 (~16 dB above baseline), consistent with US power-line interference. See
